@@ -147,6 +147,10 @@ public class Recover implements Callback<RecoverReply>, BiConsumer<Result, Throw
         if (failure == null) callback.accept(ProgressToken.APPLIED, null);
         else callback.accept(null, failure);
         node.agent().onRecover(node, result, failure);
+        if (failure instanceof Preempted)
+            node.agent().metricsEventsListener().onPreempted(txnId);
+        else
+            node.agent().metricsEventsListener().onRecover(txnId, ballot);
     }
 
     public static Recover recover(Node node, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback)
@@ -154,18 +158,18 @@ public class Recover implements Callback<RecoverReply>, BiConsumer<Result, Throw
         return recover(node, txnId, txn, route, callback, node.topology().forEpoch(route, txnId.epoch()));
     }
 
-    public static Recover recover(Node node, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback, Topologies topologies)
+    private static Recover recover(Node node, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback, Topologies topologies)
     {
         Ballot ballot = new Ballot(node.uniqueNow());
         return recover(node, ballot, txnId, txn, route, callback, topologies);
     }
 
-    public static Recover recover(Node node, Ballot ballot, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback)
+    private static Recover recover(Node node, Ballot ballot, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback)
     {
         return recover(node, ballot, txnId, txn, route, callback, node.topology().forEpoch(route, txnId.epoch()));
     }
 
-    public static Recover recover(Node node, Ballot ballot, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback, Topologies topologies)
+    private static Recover recover(Node node, Ballot ballot, TxnId txnId, Txn txn, FullRoute<?> route, BiConsumer<Outcome, Throwable> callback, Topologies topologies)
     {
         Recover recover = new Recover(node, ballot, txnId, txn, route, callback, topologies);
         recover.start(topologies.nodes());

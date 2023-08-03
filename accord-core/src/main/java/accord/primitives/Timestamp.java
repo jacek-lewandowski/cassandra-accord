@@ -343,7 +343,7 @@ public class Timestamp implements Comparable<Timestamp>
     @Override
     public String toString()
     {
-        return "[" + epoch() + ',' + hlc() + ',' + flags() + ',' + node + ']';
+        return "[" + epoch() + ',' + hlc() + ',' + Integer.toBinaryString(flags()) + ',' + node + ']';
     }
 
     public static Timestamp fromString(String string)
@@ -352,7 +352,7 @@ public class Timestamp implements Comparable<Timestamp>
         assert split.length == 4;
         return Timestamp.fromValues(Long.parseLong(split[0]),
                                     Long.parseLong(split[1]),
-                                    Integer.parseInt(split[2]),
+                                    Integer.parseInt(split[2], 2),
                                     new Id(Integer.parseInt(split[3])));
     }
 }

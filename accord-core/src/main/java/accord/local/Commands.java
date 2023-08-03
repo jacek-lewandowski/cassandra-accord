@@ -300,6 +300,7 @@ public class Commands
         command = safeCommand.commit(attrs, executeAt, waitingOn);
 
         safeStore.progressLog().committed(command, shard);
+        safeStore.agent().metricsEventsListener().onCommitted(command);
 
         // TODO (expected, safety): introduce intermediate status to avoid reentry when notifying listeners (which might notify us)
         maybeExecute(safeStore, safeCommand, shard, true, true);
@@ -436,6 +437,7 @@ public class Commands
 
         maybeExecute(safeStore, safeCommand, shard, true, true);
         safeStore.progressLog().executed(safeCommand.current(), shard);
+        safeStore.agent().metricsEventsListener().onExecuted(command);
 
         return ApplyOutcome.Success;
     }
@@ -471,8 +473,11 @@ public class Commands
     {
         logger.trace("{} applied, setting status to Applied and notifying listeners", txnId);
         SafeCommand safeCommand = safeStore.command(txnId);
+        Command cmd = safeCommand.current();
         safeCommand.applied();
         safeStore.notifyListeners(safeCommand);
+        if (!cmd.hasBeen(Applied))
+            safeStore.agent().metricsEventsListener().onApplied(safeCommand.current());
     }
 
     /**
