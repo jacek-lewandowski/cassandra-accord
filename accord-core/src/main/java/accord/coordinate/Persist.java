@@ -58,7 +58,7 @@ public class Persist implements Callback<ApplyReply>
     public static void persist(Node node, Topologies persistTo, Topologies appliesTo, TxnId txnId, FullRoute<?> route, Txn txn, Timestamp executeAt, Deps deps, Writes writes, Result result)
     {
         Persist persist = new Persist(node, appliesTo, txnId, route, txn, executeAt, deps);
-        node.send(persistTo.nodes(), to -> new Apply(to, persistTo, appliesTo, executeAt.epoch(), txnId, route, txn, executeAt, deps, writes, result), persist);
+        node.send(persistTo.nodes(), to -> new Apply(to, persistTo, appliesTo, executeAt.epoch(), txnId, route, txn, executeAt, deps, writes, result), node.coordinationExecutor, persist);
     }
 
     public static void persistAndCommitMaximal(Node node, TxnId txnId, FullRoute<?> route, Txn txn, Timestamp executeAt, Deps deps, Writes writes, Result result)

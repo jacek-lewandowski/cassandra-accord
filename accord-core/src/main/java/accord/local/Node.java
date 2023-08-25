@@ -22,7 +22,13 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -37,6 +43,7 @@ import accord.primitives.*;
 import accord.primitives.Routable.Domain;
 import accord.utils.MapReduceConsume;
 import accord.utils.async.AsyncChain;
+import accord.utils.async.AsyncChains;
 import accord.utils.async.AsyncResult;
 import accord.utils.async.AsyncResults;
 import accord.utils.RandomSource;
@@ -125,6 +132,7 @@ public class Node implements ConfigurationService.Listener, NodeTimeService
     private final AtomicReference<Timestamp> now;
     private final Agent agent;
     private final RandomSource random;
+    public final AgentExecutor coordinationExecutor;
 
     // TODO (expected, consider): this really needs to be thought through some more, as it needs to be per-instance in some cases, and per-node in others
     private final Scheduler scheduler;
@@ -147,6 +155,22 @@ public class Node implements ConfigurationService.Listener, NodeTimeService
         this.random = random;
         this.scheduler = scheduler;
         this.commandStores = factory.create(this, agent, dataSupplier.get(), random.fork(), shardDistributor, progressLogFactory.apply(this));
+        this.coordinationExecutor = new AgentExecutor()
+        {
+            private final Executor executor = Executors.newFixedThreadPool(16);
+
+            @Override
+            public Agent agent()
+            {
+                return agent;
+            }
+
+            @Override
+            public <T> AsyncChain<T> submit(Callable<T> task)
+            {
+                return AsyncChains.ofCallable(executor, task);
+            }
+        };
         configService.registerListener(this);
     }
 
@@ -397,7 +421,7 @@ public class Node implements ConfigurationService.Listener, NodeTimeService
     // send to a specific node
     public <T> void send(Id to, Request send, AgentExecutor executor, Callback<T> callback)
     {
-        checkStore(executor);
+        //checkStore(executor);
         messageSink.send(to, send, executor, callback);
     }
 
@@ -451,7 +475,25 @@ public class Node implements ConfigurationService.Listener, NodeTimeService
     {
         RoutingKey homeKey = trySelectHomeKey(txnId, keysOrRanges);
         if (homeKey == null)
-            homeKey = selectRandomHomeKey(txnId);
+        {
+            if (topology().localForEpoch(txnId.epoch()).ranges().isEmpty())
+            {
+                if (keysOrRanges.get(0).domain().isRange())
+                {
+                    Range range = keysOrRanges.get(0).asRange();
+                    homeKey = range.someIntersectingRoutingKey(Ranges.single(range));
+                }
+                else
+                {
+                    Key key = keysOrRanges.get(0).asKey();
+                    homeKey = key.toUnseekable();
+                }
+            }
+            else
+            {
+                homeKey = selectRandomHomeKey(txnId);
+            }
+        }
 
         return keysOrRanges.toRoute(homeKey);
     }

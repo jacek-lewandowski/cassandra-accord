@@ -141,7 +141,7 @@ abstract class CoordinatePreAccept<T> extends SettableResult<T> implements Callb
         // TODO (desired, efficiency): consider sending only to electorate of most recent topology (as only these PreAccept votes matter)
         // note that we must send to all replicas of old topology, as electorate may not be reachable
         node.send(nodes, to -> new PreAccept(to, topologies, txnId, txn, route),
-                  node.commandStores().select(route.homeKey()), callback);
+                  node.coordinationExecutor, callback);
     }
 
     @Override

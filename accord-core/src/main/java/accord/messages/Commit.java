@@ -116,7 +116,7 @@ public class Commit extends TxnRequest<ReadNack>
         {
             boolean read = readSet.contains(to);
             Commit send = new Commit(Kind.Minimal, to, coordinateTopology, allTopologies, txnId, txn, route, readScope, executeAt, deps, read);
-            if (read) node.send(to, send, callback);
+            if (read) node.send(to, send, node.coordinationExecutor, callback);
             else node.send(to, send);
         }
         if (coordinateTopology != executeTopology)
